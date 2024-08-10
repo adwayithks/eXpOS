@@ -1,0 +1,4 @@
+print "timer";
+print R0;
+print R1;
+ireturn;
