@@ -1,0 +1,33 @@
+// print("timer");
+// print([SYSTEM_STATUS_TABLE+1]);
+// breakpoint;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1]*16) +13] = SP;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11] * 512-1;
+backup;
+
+alias process_table_entry R1;
+process_table_entry = PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1] * 16;
+
+[process_table_entry + 12] = SP % 512;
+[process_table_entry + 14] = PTBR;
+[process_table_entry + 15] = PTLR;
+[process_table_entry + 4] = READY;
+
+// breakpoint;
+alias i R4;
+i=0;
+while (i<16) do
+	if([PROCESS_TABLE+i*16+4]!=TERMINATED) then
+		[PROCESS_TABLE + i*16 ] = [PROCESS_TABLE + i*16 ] + 1;
+	endif;
+	i=i+1;
+endwhile;
+// breakpoint;
+
+call SCHEDULER;
+
+restore;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13];
+// print("back in timer");
+// breakpoint;
+ireturn;

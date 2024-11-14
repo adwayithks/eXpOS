@@ -1,0 +1,84 @@
+//free user area page
+if (R1==2) then
+//GETTING USER AREA PAGE NUMBER
+    // print("free user page");
+    R2 = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +11];
+    R1 = 2;
+    call MOD_2;
+    return;
+endif;
+
+//exit process
+if (R1 == 3) then
+    // print("reached exit");
+    R2 = [SYSTEM_STATUS_TABLE+1];
+    R1 =4;
+    call MOD_1;
+    // print("back in exit");
+    R1 = 2;
+    call MOD_1;
+    [PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 +4] = TERMINATED;
+    // print("return exit");
+    breakpoint;
+    return;
+endif;
+
+//free page table
+if (R1 == 4) then
+    // breakpoint;
+    // print("free pt");
+    alias ptbr R5;
+    alias ptlr R6;
+    alias i R7;
+    ptbr = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +14];
+    ptlr = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +15];
+    i = 4;
+    while(i<2*ptlr) do
+        if([ptbr+i] != -1) then
+            // CALLING RELEASE PAGE
+            R1 = 2;
+            R2 = [ptbr+i];
+            call MOD_2;
+        endif;
+        [ptbr+i] = -1;
+        [ptbr+i+1] = "0000";
+        i = i+2;
+    endwhile;
+    // print("free disk block");
+    // freeing disk block by using disk map table
+    if ([DISK_MAP_TABLE + R2*10 + 2] != -1) then
+        R1 = 4;
+        R2 = [DISK_MAP_TABLE + R2*10 +2];
+        R3 = [SYSTEM_STATUS_TABLE+1];
+        call MOD_2;
+    endif;
+    if ([DISK_MAP_TABLE + R2*10 +3] != -1) then
+        R1 = 4;
+        R2 = [DISK_MAP_TABLE + R2*10 +2];
+        R3 = [SYSTEM_STATUS_TABLE+1];
+        call MOD_2;
+    endif;
+    if ([DISK_MAP_TABLE + R2*10 +8] != -1) then
+        R1 = 4;
+        R2 = [DISK_MAP_TABLE + R2*10 +2];
+        R3 = [SYSTEM_STATUS_TABLE+1];
+        call MOD_2;
+    endif;
+    if ([DISK_MAP_TABLE + R2*10 +9] != -1) then
+        R1 = 4;
+        R2 = [DISK_MAP_TABLE + R2*10 +2];
+        R3 = [SYSTEM_STATUS_TABLE+1];
+        call MOD_2;
+    endif;
+    // clearing all values in disk map table
+    // print("disk block");
+    R5 =0;
+    R2 = [SYSTEM_STATUS_TABLE + 1];
+    while(R5<10) do
+        [DISK_MAP_TABLE + R2*10 +R5] = -1;
+        R5= R5+1;
+    endwhile;    
+    // print("free pt");
+    breakpoint;
+    return;
+endif;

@@ -1,0 +1,14 @@
+load --os ../stages/stage_15/os_startup.xsm
+load --module 7 ../stages/stage_16/boot_module.xsm
+load --module 5 ../stages/stage_15/scheduler.xsm
+load --int=timer ../stages/stage_15/timer.xsm
+load --int=10 ../stages/stage_15/int_10.xsm
+load --exhandler ../stages/stage_18/exhandler.xsm
+load --int=7 ../stages/stage_15/int7.xsm
+load --idle ../stages/stage_14/idle_code.xsm
+load --init ../stages/stage_16/input.xsm
+load --module 0 ../stages/stage_15/mod_0.xsm
+load --module 4 ../stages/stage_16/mod_4.xsm
+load --int=console ../stages/stage_16/console_intr_handler.xsm
+load --library ../expl/library.lib
+load --int=6 ../stages/stage_16/int6.xsm

@@ -1,0 +1,18 @@
+alias pid R6;
+pid = [SYSTEM_STATUS_TABLE+1];
+
+[PROCESS_TABLE + pid*16 + 4] = TERMINATED;
+
+pid = 1;
+while(pid<16) do
+	if ([PROCESS_TABLE + pid*16 + 4] == READY || [PROCESS_TABLE + pid*16 + 4] == CREATED) then
+		break;
+	endif;
+	pid = pid+1;
+endwhile;
+
+if(pid == 16) then 
+	halt;
+endif;
+
+call SCHEDULER;

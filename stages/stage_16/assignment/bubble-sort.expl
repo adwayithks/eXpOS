@@ -1,0 +1,44 @@
+decl
+    int N,n1,sorted;
+    int temp,temp2;
+    int arr[100];
+enddecl
+int main()
+{
+    begin
+        write("Enter N :");
+        temp = exposcall("Read",-1,N);
+        write("enter array");
+        temp = 0;
+        while(temp<N)do
+            read(arr[temp]);
+            temp = temp+1;
+        endwhile;
+        temp = 0;
+        n1 =0;
+        while(temp < (N-1))do
+            n1 =0;
+            sorted =1;
+            while(n1<(N-temp-1))do
+                if(arr[n1]>arr[n1+1])then
+                    temp2 = arr[n1];
+                    arr[n1]= arr[n1+1];
+                    arr[n1+1] = temp2;
+                    sorted =0;
+                endif;
+                n1=n1+1;
+            endwhile;
+            if(sorted==1)then
+                break;
+            endif;
+            temp = temp+1;
+        endwhile;
+        write("sorted array");
+        temp =0;
+        while(temp<N)do
+            write(arr[temp]);
+            temp=temp+1;
+        endwhile;
+        return 0;
+    end
+}

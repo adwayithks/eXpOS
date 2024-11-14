@@ -1,0 +1,12 @@
+load --os ../stages/stage_13/os_startup.xsm
+load --module 7 ../stages/stage_13/boot_module.xsm
+load --init ../stages/stage_12/assignment/numbers.xsm
+load --int=timer ../stages/stage_12/timer.xsm
+load --library ../expl/library.lib
+load --int=10 ../stages/stage_6/halt.xsm
+load --exhandler ../stages/stage_6/halt.xsm
+load --idle ../stages/stage_12/assignment/idle_code.xsm
+load --int=7 ../stages/stage_10/int7.xsm
+load --idle ../stages/stage_13/even_numbers.xsm
+load --init ../stages/stage_13/odd_numbers.xsm
+

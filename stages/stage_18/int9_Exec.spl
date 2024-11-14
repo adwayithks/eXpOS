@@ -1,0 +1,187 @@
+alias userSP R0;
+userSP=SP;
+// setting mode flag
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 9] = 9;
+
+//changing to kernel stack
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 13] = userSP;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11]*512-1;
+
+// retrieving file name
+alias fileName R1;
+fileName = [ ([PTBR + 2*((userSP-4)/512)]*512 + (userSP-4)%512) ];
+
+alias i R2;
+alias found R3;
+R3 = 0;
+i = 0;
+while(i<=16) do
+    if ([INODE_TABLE + i*16 +1] == fileName) then
+        found = 1;
+        break;
+    endif; 
+    i=i+1;
+endwhile;
+
+if(found==0) then
+    // setting mode flag
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 9] = 0;
+    [ ([PTBR + 2*((userSP-1)/512)]*512 + (userSP-1)%512) ] = -1;
+    SP = userSP;
+    ireturn;
+else
+    // print("file found");
+    found = i; // saving the index of the file
+    // print(found);
+endif;
+
+multipush(R0,R1,R2,R3);
+R1 = 3;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+call MOD_1;
+multipop(R0,R1,R2,R3);
+
+// reclaim user area page
+[ MEMORY_FREE_LIST + [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11] ] = 1;
+[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE +2] -1;
+
+//setting the perprocess table
+alias j R0;
+j = 496;
+while(j<512) do
+    [[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +11]*512 + j] = -1;
+    j=j+1;
+endwhile;
+
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11]*512-1;
+
+// update state field of new process to running
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 4] = RUNNING;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 7] = found;
+// breakpoint;
+// print("setting ptbr");
+// setting page table entry
+PTBR = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 14];
+//library
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+// heap
+R1 = 1;
+call MOD_2;
+// print(R0);
+// breakpoint;
+[PTBR+4] = R0;
+[PTBR+5] = "0110";
+R1 = 1;
+call MOD_2;
+[PTBR+6] = R0;
+[PTBR+7] = "0110";
+
+// stack
+R1 = 1;
+call MOD_2;
+[PTBR+16] = R0;
+[PTBR+17] = "0110";
+R1 = 1;
+call MOD_2;
+[PTBR+18] = R0;
+[PTBR+19] = "0110";
+
+// code
+// no.of code pages
+// print("find code pages");
+
+//////EARLIER PAGES WAS R2 AND CAUSED SOME ISSUES WHILE MODULE CALLING SO BE CAREFUL/////////
+alias pages R5;
+pages = 0;
+if ([INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 8] != -1) then
+    pages = pages+1;
+endif;
+if ([INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 9] != -1) then
+    pages = pages+1;
+endif;
+if ([INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 10] != -1) then
+    pages = pages+1;
+endif;
+if ([INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 11] != -1) then
+    pages = pages+1;
+endif;
+
+// setting ptbr
+if (pages>=1) then
+    R1 = 1;
+    call MOD_2;
+    [PTBR+8] = R0;
+    [PTBR+9] = "0100";
+endif;
+if (pages>=2) then
+    R1 = 1;
+    call MOD_2;
+    [PTBR+10] = R0;
+    [PTBR+11] = "0100";
+else
+    [PTBR+10] = -1;
+    [PTBR+11] = "0000";
+endif;
+if (pages>=3) then
+    R1 = 1;
+    call MOD_2;
+    [PTBR+12] = R0;
+    [PTBR+13] = "0100";
+else
+    [PTBR+12] = -1;
+    [PTBR+13] = "0000";
+endif;
+if (pages>=4) then
+    R1 = 1;
+    call MOD_2;
+    [PTBR+14] = R0;
+    [PTBR+15] = "0100";
+else
+    [PTBR+14]=-1;
+    [PTBR+15]="0000";
+endif;
+
+// loading code pages
+// loadi (dest, source)
+R1 = 2;
+R2 = [SYSTEM_STATUS_TABLE+1];
+if(pages>=1) then
+    // loadi([PTBR+8], [INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 8]);
+    // print("start page 1");
+    R3 = [PTBR + 8];
+    R4 = [INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 8];
+    call MOD_4;
+    // print("page 1 load");
+endif;
+if(pages>=2) then
+    // loadi([PTBR+10], [INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 9]);
+    R3 = [PTBR + 10];
+    R4 = [INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 9];
+    call MOD_4;
+    // print("page 2 load");
+endif;
+if(pages>=3) then
+    // loadi([PTBR+12], [INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 10]);
+    R3 = [PTBR + 12];
+    R4 = [INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 10];
+    call MOD_4;
+    
+endif;
+if (pages>=4) then
+    // loadi([PTBR+14], [INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 11]);
+    R3 = [PTBR + 14];
+    R4 = [INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 11];
+    call MOD_4;
+endif;
+// print("reaached end");
+breakpoint;
+// setting the starting point of code
+[[PTBR+16] * 512] = [[PTBR+8]*512 +1];
+SP = 8*512;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 9] = 0;
+
+ireturn;

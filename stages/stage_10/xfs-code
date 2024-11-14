@@ -1,0 +1,6 @@
+load --init ../stages/stage_10/console_op.xexe
+load --int=7 ../stages/stage_10/int7.xsm
+load --os ../stages/stage_10/os_startup.xsm
+load --library ../expl/library.lib
+load --exhandler ../stages/stage_6/halt.xsm
+load --int=10 ../stages/stage_6/halt.xsm

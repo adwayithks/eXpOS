@@ -1,0 +1,34 @@
+decl
+    int prime[25];
+enddecl
+int main()
+{
+decl
+  int isprime, num, size, i, temp;
+enddecl
+begin
+  num = 2;
+  size = 0;
+  while(num <= 100) do
+    i = 0;
+    isprime = 1;
+    
+    while(i<size) do
+      if((num % prime[i]) == 0) then
+        isprime = 0;
+        break;
+      endif;
+      i = i+1;
+    endwhile;
+    
+    if (isprime==1) then
+      prime[size] = num;
+      temp = exposcall("Write",-2,num);
+      size = size+1;
+    endif;
+    
+    num = num+1;
+  endwhile;
+  return 0;
+end
+}

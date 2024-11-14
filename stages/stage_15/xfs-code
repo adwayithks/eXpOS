@@ -1,0 +1,13 @@
+load --os ../stages/stage_15/os_startup.xsm
+load --module 7 ../stages/stage_15/boot_module.xsm
+load --module 5 ../stages/stage_15/scheduler.xsm
+load --int=timer ../stages/stage_15/timer.xsm
+load --int=10 ../stages/stage_15/int_10.xsm
+load --exhandler ../stages/stage_6/halt.xsm
+load --int=7 ../stages/stage_15/int7.xsm
+load --idle ../stages/stage_14/idle_code.xsm
+load --init ../stages/stage_14/even.xsm
+load --exec ../stages/stage_14/odd.xsm
+load --exec ../stages/stage_14/assignment/prime.xsm
+load --module 0 ../stages/stage_15/mod_0.xsm
+load --module 4 ../stages/stage_15/mod_4.xsm

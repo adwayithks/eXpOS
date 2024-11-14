@@ -1,0 +1,46 @@
+// breakpoint;
+// print("in scheduler");
+alias pid R5;
+pid = [SYSTEM_STATUS_TABLE+1];
+multipush(BP);
+
+// SAVING KPTR,PTBR,PTLR
+[PROCESS_TABLE + pid*16 + 12] = SP%512;
+[PROCESS_TABLE + pid*16 + 14] = PTBR;
+[PROCESS_TABLE + pid*16 + 15] = PTLR;
+
+alias next R6;
+next = pid+1;
+pid = -1;
+while(next < 16) do
+	if( [PROCESS_TABLE + next*16 + 4] == CREATED ||[PROCESS_TABLE + next*16 + 4] == READY) then
+		pid = next;
+		break;
+	endif;
+	next = next+1;
+endwhile;
+
+if (pid==-1) then
+	pid = 0;
+endif;
+
+// GETTING SP, PTBR, PTLR
+
+SP = [PROCESS_TABLE + pid*16 + 11]*512 +[PROCESS_TABLE + pid*16 + 12];
+PTBR = [PROCESS_TABLE + pid*16 + 14];
+PTLR = [PROCESS_TABLE + pid*16 + 15];
+
+[SYSTEM_STATUS_TABLE + 1] = pid;
+
+if ([PROCESS_TABLE + pid*16 + 4] == CREATED) then
+	SP = [PROCESS_TABLE + pid*16 + 13]; //SET SP AS UPTR
+	[PROCESS_TABLE + pid*16 + 4] = RUNNING;
+	[PROCESS_TABLE + pid*16 + 9] = 0;
+	ireturn;
+endif;
+
+[PROCESS_TABLE + pid*16 + 4] = RUNNING;
+multipop(BP);
+
+// breakpoint;
+return;

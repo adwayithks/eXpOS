@@ -1,0 +1,68 @@
+// breakpoint;
+// print("in scheduler");
+alias pid R5;
+pid = [SYSTEM_STATUS_TABLE+1];
+multipush(BP);
+
+// SAVING KPTR,PTBR,PTLR
+[PROCESS_TABLE + pid*16 + 12] = SP%512;
+[PROCESS_TABLE + pid*16 + 14] = PTBR;
+[PROCESS_TABLE + pid*16 + 15] = PTLR;
+
+alias next R6;
+next = pid+1;
+pid = 0;
+while(next < 16) do
+	if( [PROCESS_TABLE + next*16 + 4] == CREATED || [PROCESS_TABLE + next*16 + 4] == READY) then
+		pid = next;
+		// print(" curr pid ");
+		// pri
+		// print([PROCESS_TABLE + next*16 + 4]);
+		break;
+	endif;
+	next = next+1;
+endwhile;
+// next = 0;
+// while(next<16) do
+// 	if([PROCESS_TABLE + next*16 + 4] == CREATED || [PROCESS_TABLE + next*16 + 4] == READY) then
+// 		// print(next);
+// 	endif;
+// 	next = next +1;
+
+// endwhile;
+// if (pid==-1) then
+// 	pid = 0;
+	// print("pid");	
+	// print(pid);
+	// breakpoint;
+// 	breakpoint;
+// endif;
+
+// GETTING SP, PTBR, PTLR
+
+[SYSTEM_STATUS_TABLE + 1] = pid;
+SP = [PROCESS_TABLE + pid*16 + 11]*512 +[PROCESS_TABLE + pid*16 + 12];
+PTBR = [PROCESS_TABLE + pid*16 + 14];
+PTLR = [PROCESS_TABLE + pid*16 + 15];
+
+
+if ([PROCESS_TABLE + pid*16 + 4] == CREATED) then
+	// print("created");
+	breakpoint;
+	BP = [SP]; // STAGE 20
+	SP = [PROCESS_TABLE + pid*16 + 13]; //SET SP AS UPTR
+	[PROCESS_TABLE + pid*16 + 4] = RUNNING;
+	[PROCESS_TABLE + pid*16 + 9] = 0;
+	ireturn;
+endif;
+
+// if([PROCESS_TABLE + 10*16 +4] == READY) then
+// 	print("FOUND");
+// 	breakpoint;
+// endif;
+
+[PROCESS_TABLE + pid*16 + 4] = RUNNING;
+multipop(BP);
+
+// print(pid);
+return;

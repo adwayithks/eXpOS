@@ -1,0 +1,136 @@
+// print("in int 9");
+alias userSP R0;
+userSP=SP;
+// print(userSP);
+// setting mode flag
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 9] = 9;
+
+//changing to kernel stack
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 13] = userSP;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11]*512-1;
+
+// retrieving file name
+alias fileName R1;
+fileName = [ ([PTBR + 2*((userSP-4)/512)]*512 + (userSP-4)%512) ];
+
+alias i R2;
+alias found R3;
+found = 0;
+i = 0;
+while(i<=16) do
+    if ([INODE_TABLE + i*16 +1] == fileName) then
+        found = 1;
+        break;
+    endif; 
+    i=i+1;
+endwhile;
+
+if(found==0) then
+    // setting mode flag
+    // print("file not found");
+    userSP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13];
+    // print(userSP);
+    [ [PTBR + 2*(userSP-2)/512]*512 + ((userSP-2)%512) ] = -1;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 9] = 0;
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13];
+    
+    ireturn;
+else
+    // print("file found");
+    found = i; // saving the index of the file
+    // print(found);
+endif;
+
+multipush(R0,R1,R2,R3);
+R1 = 3;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+// print("call exit");
+call MOD_1;
+multipop(R0,R1,R2,R3);
+
+// reclaim user area page
+[ MEMORY_FREE_LIST + [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11] ] = 1;
+//decrementing mem free count
+[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE +2] -1;
+
+//setting the perprocess table
+alias j R0;
+j = 496;
+while(j<512) do
+    [ [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +11]*512 +j] = -1;
+    j=j+1;
+    [ [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +11]*512 +j] = 0;
+    j=j+1;
+endwhile;
+
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11]*512-1;
+
+// update state field of new process to running
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 4] = RUNNING;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 7] = found;
+// breakpoint;
+// print("setting ptbr");
+// setting page table entry
+PTBR = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 14];
+//library
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+// heap
+//invalidating all heap pages
+[PTBR+4] = -1;
+[PTBR+5] = "0000";
+[PTBR+6] = -1;
+[PTBR+7] = "0000";
+
+// stack
+R1 = 1;
+call MOD_2;
+[PTBR+16] = R0;
+[PTBR+17] = "0110";
+R1 = 1;
+call MOD_2;
+[PTBR+18] = R0;
+[PTBR+19] = "0110";
+
+// setting ptbr for code page
+
+R1 = 5;
+R2 = [INODE_TABLE + [PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 7]*16 + 8];
+// print("call mod 2");
+call MOD_2;
+[PTBR+8] = R0;
+[PTBR+9] = "0100";
+
+[PTBR+10] = -1;
+[PTBR+11] = "0000";
+
+[PTBR+12] = -1;
+[PTBR+13] = "0000";
+
+[PTBR+14]=-1;
+[PTBR+15]="0000";
+// print("final touch");
+//setting disk map table entries
+i=0;
+R7 = [SYSTEM_STATUS_TABLE+1];
+while(i<10) do  
+    [DISK_MAP_TABLE + R7*10 +i] = -1;
+    i=i+1;
+endwhile;
+[DISK_MAP_TABLE + R7 *10 +4] = [INODE_TABLE + [PROCESS_TABLE+ R7*16 + 7]*16 + 8];
+[DISK_MAP_TABLE + R7 *10 +5] = [INODE_TABLE + [PROCESS_TABLE+ R7*16 + 7]*16 + 9];
+[DISK_MAP_TABLE + R7 *10 +6] = [INODE_TABLE + [PROCESS_TABLE+ R7*16 + 7]*16 + 10];
+[DISK_MAP_TABLE + R7 *10 +7] = [INODE_TABLE + [PROCESS_TABLE+ R7*16 + 7]*16 + 11];
+
+// print("check dmt");
+
+// setting the starting point of code
+[[PTBR+16] * 512] = [[PTBR+8]*512 +1];
+SP = 8*512;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 9] = 0;
+breakpoint;
+
+ireturn;

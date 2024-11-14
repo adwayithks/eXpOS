@@ -1,0 +1,189 @@
+//SETTING MODE FLAG
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 8;
+// SWITCH TO KERNEL STACK
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13 ] = SP;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11] *512 -1;
+// print("infork");
+//INVOKE GET PCB ENTRY
+R1 =1;
+call MOD_1;
+
+if(R0 == -1) then
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 13];
+    [[PTBR + 2*((SP-1)/512)] + (SP-1)%512] = -1;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+    ireturn;
+endif;
+// print("pcb allocated");
+// print(R0);
+alias pagetable R9;
+pagetable = [PROCESS_TABLE + R0*16 + 14];
+multipush(R0);
+// allocating heap for parent if not present
+if([PTBR + 5] == "0000") then
+    multipush(R9);
+    R1 = 1;
+    call MOD_2;
+    multipop(R9);
+    [PTBR + 4] = R0;
+    [PTBR + 5] = "1110";
+
+    // WILL DO THIS LATER
+    // [pagetable + 4] = R0;
+    // [pagetable + 5] = "1110";
+
+    multipush(R9);
+    R1 = 1;
+    call MOD_2;
+    multipop(R9);
+    [PTBR + 6] = R0;
+    [PTBR + 7] = "1110";
+    // [pagetable + 6] = R0;
+    // [pagetable + 7] = "1110";
+endif;
+
+//2 stack and 1 user page for child  
+// doubt here as how is the value of ptbr decided? //ptbr is initialised in get pcb
+multipush(R9);
+R1 = 1;
+call MOD_2;
+multipop(R9);
+[pagetable + 16] = R0;
+[pagetable + 17] = "1110";
+multipush(R9);
+R1 = 1;
+call MOD_2;
+multipop(R9);
+[pagetable + 18] = R0;
+[pagetable + 19] = "1110";
+//user page
+multipush(R9);
+R1 = 1;
+call MOD_2;
+multipop(R9);
+R1 = R0;
+multipop(R0);
+[PROCESS_TABLE + R0*16 + 11] = R1;  // setting user area page number
+
+// CREATING PROCESS TABLE 
+//copying from parent to child
+alias child R11;
+alias parent R12;
+child = PROCESS_TABLE + R0*16;
+parent = PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16;
+[child + 3] = [parent + 3];   //userid
+[child + 6] = [parent + 6];   //swap flag
+[child + 10] = [parent + 10]; //user area swap status
+[child + 7] = [parent + 7];   //inode index
+[child + 13] = [parent + 13]; //uptr
+//setting some things to zero
+[child + 9] = 0; //mode
+[child + 12] = 0;//kptr
+[child + 0] = 0; //tick
+//ppid
+[child + 2] = [SYSTEM_STATUS_TABLE+1];//ppid
+[child + 4] = CREATED;
+
+//copying per process resource table
+alias i R7;
+alias userpage R8;
+userpage = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11]*512;
+alias newuserpage R10;
+newuserpage = [PROCESS_TABLE + R0*16 + 11]*512;
+i=0;
+while(i<8) do
+    [newuserpage+496+2*i] = [userpage+496+2*i];
+    [newuserpage+496+2*i+1] = [userpage+496+2*i+1];
+    alias semidx R14;
+    semidx = newuserpage+496+2*i;
+    if ([semidx] == 1) then
+        [SEMAPHORE_TABLE + [semidx +1]+1] = [SEMAPHORE_TABLE + [semidx+1]+1] + 1; // increasing process count
+    endif;
+    i = i+1;
+endwhile;
+
+//copying per process disk map table
+i = 0;
+while(i<16) do
+    [DISK_MAP_TABLE + R0*10 +i] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE+1]*10 + i];
+    i = i+1;
+endwhile;
+
+// //initialize page table
+// [pagetable + 4] = [PTBR + 4];
+// [pagetable + 5] = [PTBR + 5];
+// [MEMORY_FREE_LIST + [pagetable+4]] = [MEMORY_FREE_LIST + [pagetable+4]] + 1;
+
+// [pagetable + 6] = [PTBR + 6];
+// [pagetable + 7] = [PTBR + 7];
+// [MEMORY_FREE_LIST + [pagetable+6]] = [MEMORY_FREE_LIST + [pagetable+6]] + 1;
+// // code pages
+// [pagetable + 8] = [PTBR + 8];
+// [pagetable + 9] = [PTBR + 9];
+// [MEMORY_FREE_LIST + [pagetable+8]] = [MEMORY_FREE_LIST + [pagetable+8]] + 1;
+// [pagetable + 10] = [PTBR + 10];
+// [pagetable + 11] = [PTBR + 11];
+// [MEMORY_FREE_LIST + [pagetable+11]] = [MEMORY_FREE_LIST + [pagetable+11]] + 1;
+// [pagetable + 12] = [PTBR + 12];
+// [pagetable + 13] = [PTBR + 13];
+// [MEMORY_FREE_LIST + [pagetable+12]] = [MEMORY_FREE_LIST + [pagetable+12]] + 1;
+// [pagetable + 14] = [PTBR + 14];
+// [pagetable + 15] = [PTBR + 15];
+// [MEMORY_FREE_LIST + [pagetable+14]] = [MEMORY_FREE_LIST + [pagetable+14]] + 1;
+
+// // library pages
+// [pagetable + 0] = [PTBR + 0];
+// [pagetable + 1] = [PTBR + 1];
+// [MEMORY_FREE_LIST + [pagetable+0]] = [MEMORY_FREE_LIST + [pagetable+0]] + 1;
+// [pagetable + 2] = [PTBR + 2];
+// [pagetable + 3] = [PTBR + 3];
+// [MEMORY_FREE_LIST + [pagetable+2]] = [MEMORY_FREE_LIST + [pagetable+2]] + 1;
+i = 0;
+while(i<16) do
+    [pagetable + i] = [PTBR + i];
+    if(i%2==0 && i>3) then
+        [MEMORY_FREE_LIST + [pagetable+i]] = [MEMORY_FREE_LIST + [pagetable+i]] + 1;
+    endif;
+    i = i+1;
+endwhile;
+
+// COPYING CONTETS OF PARENT STACK TO CHILD
+alias stack R7;
+alias newstack R8;
+stack = [PTBR + 16]*512;
+newstack = [pagetable + 16]*512;
+alias usersp R10;
+usersp = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13] - 8*512;
+
+alias i R6;
+i = 0;
+while(i<=usersp) do
+    [newstack + i] = [stack+i]; 
+    // print([newstack+i]);
+    // print([stack+i]);
+    i = i+1;
+endwhile;
+
+//storing bp value on top of kernel stack
+[[PROCESS_TABLE + R0*16 + 11]*512] = BP;
+[PROCESS_TABLE + R0*16 + 12] = 0;
+
+// setting return value
+//for parent
+usersp = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE+1]*16) + 13];
+[[PTBR + 2*((usersp-1)/512)]*512 + ((usersp-1)%512)] = R0;
+// print("setting stack");
+// print([([PTBR + (2* (usersp-1)/512)] *512) + ((usersp-1)%512)]);
+// print([SYSTEM_STATUS_TABLE + 1]);
+
+//for child
+usersp = [PROCESS_TABLE + R0*16 + 13];
+[[pagetable + 2*((usersp-1)/512)]*512 + ((usersp-1)%512)] = 0;
+
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13];
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
+// print("before ireturn");
+// print("forkover");
+// print([SYSTEM_STATUS_TABLE+1]);
+breakpoint;
+ireturn;

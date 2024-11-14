@@ -1,0 +1,85 @@
+alias systemcall R1;
+alias userSP R0;
+// print("int 11");
+// print(systemcall);
+breakpoint;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13] = SP;
+userSP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13];
+systemcall = [ [PTBR + 2*(userSP-5)/512]*512 + (userSP-5)%512 ];
+// print([ [PTBR + 2*(userSP-2)/512]*512 + (userSP-2)%512 ]);
+breakpoint;
+//switch to kernel stack
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11]*512;
+
+// wait systemcall
+if(systemcall==13) then
+    // print("in wait");
+    breakpoint;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = systemcall;
+    alias pid R2;
+    pid = [ [PTBR + 2*(userSP-3)/512]*512 + (userSP-3)%512 ];
+    //check pid validity
+    if(pid == [SYSTEM_STATUS_TABLE+1] || [PROCESS_TABLE + pid*16 + 4] == TERMINATED || pid>15 || pid<0) then
+        // print("pid invalid");
+        [ [PTBR + 2*(userSP-1)/512]*512 + (userSP-1)%512 ] = -1;
+
+        // changing mode flag and switching to user stack
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+        SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +13];
+        ireturn;
+    endif;
+
+    //saving the tuple wait process, pid in state field of process table
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 4] = WAIT_PROCESS;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 5] = pid;
+    // print("wait process");
+    breakpoint;
+    // print(pid);
+    multipush(R0);
+    call SCHEDULER;
+    multipop(R0);
+    // print("wait over");
+    breakpoint;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+    [ [PTBR + 2*(userSP-1)/512]*512 + (userSP-1)%512 ] = 0;
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +13];
+    ireturn;    
+endif;
+
+//signal system call
+if(systemcall == 14) then
+    // print("in signal");
+    breakpoint;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = systemcall;
+    alias i R3;
+    alias state R4;
+    i=0;
+    while(i<16) do
+        state = PROCESS_TABLE + i*16 + 4;
+        if([state] == WAIT_PROCESS && [state + 1]==[SYSTEM_STATUS_TABLE+1]) then
+            [state] = READY;
+        endif;
+        i=i+1;
+    endwhile;    
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+    [ [PTBR + 2*(userSP-1)/512]*512 + (userSP-1)%512 ] = 0;
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +13];
+    ireturn;
+endif;
+
+// get pid
+if(systemcall == 11) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = systemcall;
+    [ [PTBR + 2*(userSP-1)/512]*512 + (userSP-1)%512 ] = [SYSTEM_STATUS_TABLE+1];
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +13];
+    ireturn;
+endif;
+
+// get ppid
+if(systemcall == 12) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = systemcall;
+    [ [PTBR + 2*(userSP-1)/512]*512 + (userSP-1)%512 ] = [PROCESS_TABLE + 2];
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 +13];
+    ireturn;
+endif;
+print("nothing match");

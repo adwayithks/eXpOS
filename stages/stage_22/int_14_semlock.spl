@@ -1,0 +1,106 @@
+alias funcnum R1;
+funcnum = [ [PTBR + 2*((SP-5)/512)]*512 + (SP-5)%512 ];
+print("in semlock");
+print(funcnum); //check
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 13] = SP; //SAVING USER SP
+
+//semlock
+if(funcnum == 19) then
+    // print("ilock");
+    breakpoint;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE]*16 + 9] = 19; //setting mode flag
+    
+    alias semDesc R1;
+    semDesc = [ [PTBR + 2*(SP-4)/512]*512 + (SP - 4)%512 ];
+    alias perProcessTable R3;
+    perProcessTable = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11]*512 + 496;
+
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 11]*512-1; //SWITCHING TO KERNEL STACK
+    
+
+    if(semDesc <0 || semDesc>7 || [perProcessTable + 2*semDesc] !=1 ) then
+        SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 13];
+        [ [PTBR + 2*((SP-1)/512)]*512 + (SP-1)%512 ] = -1;
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE]*16 + 9] = 0; //setting mode flag
+        print("semlock fail");
+        ireturn;
+    endif;
+    // [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 5] = semDesc; // placed this 5 lines earlier as a tharikida
+    semDesc = [perProcessTable + 2*semDesc + 1];
+    print(semDesc);
+    breakpoint;
+    while([SEMAPHORE_TABLE + 4*semDesc] != -1 && [SEMAPHORE_TABLE + 4*semDesc] != [SYSTEM_STATUS_TABLE+1]) do
+        // print("already locked");
+        // print([SEMAPHORE_TABLE + semDesc]);
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 4] = WAIT_SEMAPHORE;
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 5] = semDesc;
+        multipush(R1);
+        call SCHEDULER;
+        multipop(R1);
+        breakpoint;
+    endwhile;
+
+    [SEMAPHORE_TABLE + 4*semDesc] = [SYSTEM_STATUS_TABLE+1];
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13];
+    [ [PTBR + 2*(SP-1)/512]*512 + (SP - 1)%512 ] = 0;
+    // print("semlock return");
+    print("locked");
+    // print([SYSTEM_STATUS_TABLE+1]);
+    ireturn;
+endif;
+
+if(funcnum == 20) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE]*16 + 9] = 19; //setting mode flag
+    
+    alias semDesc R1;
+    semDesc = [ [PTBR + 2*(SP-4)/512]*512 + (SP - 4)%512 ];
+    alias perProcessTable R3;
+    perProcessTable = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 11]*512 + 496;
+
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 11]*512-1; //SWITCHING TO KERNEL STACK
+
+    if(semDesc <0 || semDesc>7 || [perProcessTable + 2*semDesc] !=1 ) then
+        SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 13];
+        [ [PTBR + 2*((SP-1)/512)]*512 + (SP-1)%512 ] = -1;
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE]*16 + 9] = 0; //setting mode flag
+        print("semunlock fail");
+        // print(semDesc);
+        ireturn;
+    endif;
+    // multipush(R1);
+    semDesc = [perProcessTable + 2*semDesc + 1]; // changing to point to semaphore table
+    // print(semDesc);
+    if([SEMAPHORE_TABLE + 4*semDesc] != -1) then
+        if([SEMAPHORE_TABLE + 4*semDesc] != [SYSTEM_STATUS_TABLE+1]) then
+            // print("other locked");
+            // print([SYSTEM_STATUS_TABLE+1]);
+            breakpoint;
+            [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;       
+            SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13];
+            [ [PTBR + 2*(SP-1)/512]*512 + (SP - 1)%512 ] = -2;
+            ireturn;
+        endif;
+        print("unlocked");
+        // print([SYSTEM_STATUS_TABLE+1]);
+        [SEMAPHORE_TABLE + 4*semDesc]  = -1;
+        // multipop(R1);
+        alias i R4;
+        i=0;
+        while(i<16) do
+            alias process R5;
+            process = PROCESS_TABLE + i*16;
+            if( [process + 4] == WAIT_SEMAPHORE && [process + 5] == semDesc) then
+                // print("process ready");
+                [process+4] = READY;
+            endif;
+            i=i+1;
+        endwhile;
+    endif;
+
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 9] = 0;
+    SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE+1]*16 + 13];
+    [ [PTBR + 2*(SP-1)/512]*512 + (SP - 1)%512 ] = 0;
+    ireturn;
+endif;
